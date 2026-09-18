@@ -12,6 +12,9 @@ CORS(
 PRODUCTS = [
     {"id": 1, "name": "Laptop", "price": 999.99},
     {"id": 2, "name": "Keyboard", "price": 79.99},
+    {"id": 3, "name": "Monitor", "price": 249.99},
+    {"id": 4, "name": "Mouse", "price": 29.99},
+    {"id": 5, "name": "USB-C Hub", "price": 49.99},
 ]
 
 

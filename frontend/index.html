@@ -3,55 +3,62 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Microservices Portal</title>
+  <meta name="theme-color" content="#0b1120">
+  <title>Service Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['DM Sans', 'ui-sans-serif', 'system-ui'] }, colors: { ink: '#0b1120', mint: '#63e6be' } } } };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f9; color: #333; }
-    h1 { color: #2c3e50; }
-    .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    button { padding: 10px 18px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-    button:hover { background: #0056b3; }
-    pre { background: #272822; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #080d19; color: #e7eefb; font-family: 'DM Sans', sans-serif; }
+    body::before { content: ''; position: fixed; inset: 0; pointer-events: none; opacity: .28; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 32px 32px; }
+    .mono { font-family: 'Space Mono', monospace; }
+    .panel { border: 1px solid #243149; background: rgba(15, 24, 43, .86); box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+    .input { width: 100%; border: 1px solid #2a3b58; border-radius: 10px; background: #0b1425; color: #eef5ff; padding: 11px 13px; outline: none; transition: border .2s, box-shadow .2s; }
+    .input:focus { border-color: #63e6be; box-shadow: 0 0 0 3px rgba(99,230,190,.12); }
+    .btn { border-radius: 9px; padding: 10px 15px; font-weight: 700; transition: transform .15s, opacity .2s; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { cursor: wait; opacity: .55; transform: none; }
+    .reveal { animation: reveal .45s ease both; }
+    @keyframes reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
-  <h1>Microservices Portal</h1>
-
-  <div class="card">
-    <h2>1. Auth Service (Port 5001)</h2>
-    <button onclick="login()">Test Login</button>
-    <pre id="auth-output">Click button to test...</pre>
-  </div>
-
-  <div class="card">
-    <h2>2. Products Service (Port 5002)</h2>
-    <button onclick="getProducts()">Fetch Products</button>
-    <pre id="products-output">Click button to test...</pre>
-  </div>
-
-  <script>
-    async function login() {
-      try {
-        const res = await fetch('http://localhost:5001/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: 'admin', password: 'password' })
-        });
-        const data = await res.json();
-        document.getElementById('auth-output').innerText = JSON.stringify(data, null, 2);
-      } catch (err) {
-        document.getElementById('auth-output').innerText = "Error: " + err.message;
-      }
+  <div id="root"></div>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useEffect, useState } = React;
+    const SERVICES = { auth: { label: 'Auth Service', port: 5001, color: '#8ab4ff' }, products: { label: 'Products Service', port: 5002, color: '#63e6be' }, orders: { label: 'Orders Service', port: 5003, color: '#ffb86b' } };
+    function Status({ type = 'info', children }) { const styles = { success: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200', error: 'border-red-400/30 bg-red-400/10 text-red-200', info: 'border-sky-400/30 bg-sky-400/10 text-sky-200' }; return <div className={'rounded-lg border px-3 py-2 text-sm ' + styles[type]} role="status">{children}</div>; }
+    function App() {
+      const [activeTab, setActiveTab] = useState('auth'); const [dark, setDark] = useState(true); const [busy, setBusy] = useState({}); const [notice, setNotice] = useState(null);
+      const [credentials, setCredentials] = useState({ username: 'admin', password: 'password' }); const [token, setToken] = useState(null); const [products, setProducts] = useState([]); const [orders, setOrders] = useState([]); const [orderForm, setOrderForm] = useState({ product_id: '1', quantity: 1 });
+      useEffect(() => { document.documentElement.classList.toggle('dark', dark); document.body.style.background = dark ? '#080d19' : '#eef3f8'; document.body.style.color = dark ? '#e7eefb' : '#172033'; }, [dark]);
+      useEffect(() => { fetchOrders(); }, []);
+      const request = async (url, options = {}) => { const response = await fetch(url, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } }); const text = await response.text(); let data; try { data = text ? JSON.parse(text) : {}; } catch { data = { message: text }; } if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status})`); return data; };
+      const run = async (key, action) => { setBusy(state => ({ ...state, [key]: true })); setNotice(null); try { await action(); } catch (error) { setNotice({ type: 'error', message: error.message + ' Check that Docker services are running and CORS is enabled.' }); } finally { setBusy(state => ({ ...state, [key]: false })); } };
+      const login = event => { event.preventDefault(); run('login', async () => { const data = await request('http://localhost:5001/login', { method: 'POST', body: JSON.stringify(credentials) }); setToken(data.token); setNotice({ type: 'success', message: 'Authenticated successfully. JWT response captured below.' }); }); };
+      const fetchProducts = () => run('products', async () => { const data = await request('http://localhost:5002/products'); setProducts(data); setNotice({ type: 'success', message: `${data.length} products loaded from port 5002.` }); });
+      const fetchOrders = () => run('orders', async () => { const data = await request('http://localhost:5003/orders'); setOrders(data); });
+      const createOrder = event => { event.preventDefault(); run('createOrder', async () => { const draft = { id: `local-${Date.now()}`, product_id: Number(orderForm.product_id), quantity: Number(orderForm.quantity), status: 'draft (local)' }; try { const saved = await request('http://localhost:5003/orders', { method: 'POST', body: JSON.stringify(draft) }); setOrders(current => [saved, ...current]); setNotice({ type: 'success', message: 'Order created by the Orders Service.' }); } catch (error) { if (!error.message.includes('405')) throw error; setOrders(current => [draft, ...current]); setNotice({ type: 'info', message: 'Orders Service is read-only right now, so this order was added as a local draft.' }); } }); };
+      const tabClass = tab => activeTab === tab ? 'bg-white/10 text-white shadow-inner' : 'text-slate-400 hover:bg-white/5 hover:text-white';
+      return <main className="relative mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-8 sm:py-10"><header className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><div className="mono mb-3 text-xs uppercase tracking-[.24em] text-mint">// local control plane</div><h1 className="text-3xl font-bold tracking-tight sm:text-5xl">Service <span className="text-mint">Console</span></h1><p className="mt-3 max-w-xl text-slate-400">A single workspace for inspecting auth, inventory, and order flows across your microservices.</p></div><button className="btn border border-slate-600 bg-slate-800/70 text-slate-200" onClick={() => setDark(value => !value)}>{dark ? '☀ Light mode' : '☾ Dark mode'}</button></header>
+        <section className="mb-6 grid gap-3 sm:grid-cols-3">{Object.entries(SERVICES).map(([key, service]) => <div key={key} className="panel rounded-xl p-4"><div className="mb-3 flex items-center justify-between"><span className="text-sm font-semibold">{service.label}</span><span className="h-2 w-2 rounded-full" style={{ backgroundColor: service.color, boxShadow: `0 0 12px ${service.color}` }} /></div><span className="mono text-xs text-slate-500">localhost:{service.port}</span></div>)}</section>
+        <nav className="panel mb-6 flex gap-1 overflow-x-auto rounded-xl p-1" aria-label="Service panels">{Object.entries(SERVICES).map(([key, service]) => <button key={key} className={'whitespace-nowrap rounded-lg px-4 py-3 text-sm font-semibold transition ' + tabClass(key)} onClick={() => setActiveTab(key)}>{service.label}</button>)}</nav>{notice && <div className="mb-5"><Status type={notice.type}>{notice.message}</Status></div>}
+        <section className="panel reveal rounded-2xl p-5 sm:p-8" key={activeTab}>
+          {activeTab === 'auth' && <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr]"><div><div className="mono mb-2 text-xs text-sky-300">POST /login</div><h2 className="text-2xl font-bold">Authenticate a user</h2><p className="mt-2 text-sm leading-6 text-slate-400">Send credentials through the CORS-enabled auth gateway and inspect the live response.</p><form onSubmit={login} className="mt-7 space-y-4"><label className="block text-sm font-medium">Username<input className="input mt-2" value={credentials.username} onChange={e => setCredentials({ ...credentials, username: e.target.value })} /></label><label className="block text-sm font-medium">Password<input className="input mt-2" type="password" value={credentials.password} onChange={e => setCredentials({ ...credentials, password: e.target.value })} /></label><button className="btn w-full bg-mint text-ink" disabled={busy.login}>{busy.login ? 'Signing in...' : 'Run login request'}</button></form></div><div><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">JWT response</h3><span className="mono text-xs text-slate-500">LIVE</span></div><pre className="min-h-48 overflow-auto rounded-xl border border-slate-700 bg-[#070b14] p-4 text-xs leading-6 text-mint">{token ? JSON.stringify({ token, status: 'success' }, null, 2) : '// Submit the form to inspect the token response'}</pre></div></div>}
+          {activeTab === 'products' && <div><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><div className="mono mb-2 text-xs text-emerald-300">GET /products</div><h2 className="text-2xl font-bold">Product catalog</h2><p className="mt-2 text-sm text-slate-400">Fetch the current inventory from the Products Service.</p></div><button className="btn bg-mint text-ink" onClick={fetchProducts} disabled={busy.products}>{busy.products ? 'Fetching...' : '↻ Fetch Products'}</button></div>{products.length ? <div className="mt-8 grid gap-4 sm:grid-cols-2">{products.map(product => <article className="rounded-xl border border-slate-700 bg-slate-900/70 p-5" key={product.id}><div className="mb-8 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-400/10 text-2xl">▦</div><div className="text-xs text-slate-500">SKU-{String(product.id).padStart(3, '0')}</div><h3 className="mt-1 text-lg font-semibold">{product.name}</h3><div className="mt-4 text-2xl font-bold text-mint">${Number(product.price).toFixed(2)}</div></article>)}</div> : <div className="mt-8 rounded-xl border border-dashed border-slate-700 p-12 text-center text-sm text-slate-500">No products loaded yet. Fetch the catalog to begin.</div>}</div>}
+          {activeTab === 'orders' && <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr]"><div><div className="mono mb-2 text-xs text-orange-300">POST /orders</div><h2 className="text-2xl font-bold">Create an order</h2><p className="mt-2 text-sm leading-6 text-slate-400">Submit an order request, or keep a local draft while the service endpoint is read-only.</p><form onSubmit={createOrder} className="mt-7 space-y-4"><label className="block text-sm font-medium">Product ID<input className="input mt-2" type="number" min="1" value={orderForm.product_id} onChange={e => setOrderForm({ ...orderForm, product_id: e.target.value })} /></label><label className="block text-sm font-medium">Quantity<input className="input mt-2" type="number" min="1" value={orderForm.quantity} onChange={e => setOrderForm({ ...orderForm, quantity: e.target.value })} /></label><button className="btn w-full bg-orange-300 text-ink" disabled={busy.createOrder}>{busy.createOrder ? 'Creating...' : 'Create order'}</button></form></div><div><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">Order history</h3><button className="text-sm text-orange-300 hover:text-orange-200" onClick={fetchOrders} disabled={busy.orders}>{busy.orders ? 'Loading...' : 'Refresh'}</button></div><div className="space-y-3">{orders.length ? orders.map(order => <div className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900/70 p-4" key={order.id}><div><div className="font-semibold">Order #{order.id}</div><div className="mono mt-1 text-xs text-slate-500">Product {order.product_id} · Qty {order.quantity}</div></div><span className="rounded-full bg-orange-300/10 px-3 py-1 text-xs text-orange-200">{order.status}</span></div>) : <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-sm text-slate-500">No orders found.</div>}</div></div></div>}
+        </section><footer className="mono mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-600"><span>React 18</span><span>Tailwind CDN</span><span>CORS aware</span><span>v1.0 / dev</span></footer>
+      </main>;
     }
-
-    async function getProducts() {
-      try {
-        const res = await fetch('http://localhost:5002/products');
-        const data = await res.json();
-        document.getElementById('products-output').innerText = JSON.stringify(data, null, 2);
-      } catch (err) {
-        document.getElementById('products-output').innerText = "Error: " + err.message;
-      }
-    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
