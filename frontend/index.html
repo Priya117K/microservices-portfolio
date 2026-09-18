@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Microservices Portal</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; background: #f4f4f9; color: #333; }
+    h1 { color: #2c3e50; }
+    .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    button { padding: 10px 18px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    button:hover { background: #0056b3; }
+    pre { background: #272822; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Microservices Portal</h1>
+
+  <div class="card">
+    <h2>1. Auth Service (Port 5001)</h2>
+    <button onclick="login()">Test Login</button>
+    <pre id="auth-output">Click button to test...</pre>
+  </div>
+
+  <div class="card">
+    <h2>2. Products Service (Port 5002)</h2>
+    <button onclick="getProducts()">Fetch Products</button>
+    <pre id="products-output">Click button to test...</pre>
+  </div>
+
+  <script>
+    async function login() {
+      try {
+        const res = await fetch('http://localhost:5001/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'admin', password: 'password' })
+        });
+        const data = await res.json();
+        document.getElementById('auth-output').innerText = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById('auth-output').innerText = "Error: " + err.message;
+      }
+    }
+
+    async function getProducts() {
+      try {
+        const res = await fetch('http://localhost:5002/products');
+        const data = await res.json();
+        document.getElementById('products-output').innerText = JSON.stringify(data, null, 2);
+      } catch (err) {
+        document.getElementById('products-output').innerText = "Error: " + err.message;
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_TLS_CERTDIR: "/certs"
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA"
+  DOCKER_DRIVER: overlay2
+
+.build-image:
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      alias: docker
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin
+  script:
+    - docker build --tag "$CI_REGISTRY_IMAGE/$SERVICE_NAME:$IMAGE_TAG" "$SERVICE_PATH"
+    - docker push "$CI_REGISTRY_IMAGE/$SERVICE_NAME:$IMAGE_TAG"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "$CI_REGISTRY_IMAGE/$SERVICE_NAME:$IMAGE_TAG" "$CI_REGISTRY_IMAGE/$SERVICE_NAME:latest"
+        docker push "$CI_REGISTRY_IMAGE/$SERVICE_NAME:latest"
+      fi
+
+build-auth:
+  extends: .build-image
+  variables:
+    SERVICE_NAME: auth-service
+    SERVICE_PATH: auth-service
+
+build-products:
+  extends: .build-image
+  variables:
+    SERVICE_NAME: products-service
+    SERVICE_PATH: products-service
+
+build-orders:
+  extends: .build-image
+  variables:
+    SERVICE_NAME: orders-service
+    SERVICE_PATH: orders-service
+
+deploy:
+  image: alpine:3.20
+  stage: deploy
+  needs:
+    - build-auth
+    - build-products
+    - build-orders
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\\r' > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    - |
+      ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
+      scp docker-compose.yml "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/docker-compose.yml"
+      ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && echo '$CI_REGISTRY_PASSWORD' | docker login '$CI_REGISTRY' --username '$CI_REGISTRY_USER' --password-stdin && CI_REGISTRY_IMAGE='$CI_REGISTRY_IMAGE' IMAGE_TAG='$IMAGE_TAG' docker compose pull && CI_REGISTRY_IMAGE='$CI_REGISTRY_IMAGE' IMAGE_TAG='$IMAGE_TAG' docker compose up -d --remove-orphans"
