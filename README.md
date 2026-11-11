@@ -52,12 +52,12 @@ The entire application can be started with a **single Docker Compose command**.
                  │   │  Products    │                 │
                  │   │  Flask :5002 │                 │
                  │   └───────┬──────┘                 │
-                 │           │                         │
+                 │           │                        │
                  │   ┌───────▼──────┐                 │
                  │   │   Orders     │                 │
                  │   │  Flask :5003 │                 │
                  │   └───────┬──────┘                 │
-                 │           │                         │
+                 │           │                        │
                  │   ┌───────▼──────┐                 │
                  │   │    MySQL     │                 │
                  │   │     :3306    │                 │
